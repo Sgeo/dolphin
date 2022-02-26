@@ -1403,11 +1403,21 @@ void Renderer::RenderXFBToScreen(const MathUtil::Rectangle<int>& target_rc,
                                  const MathUtil::Rectangle<int>& source_rc)
 {
   if (g_ActiveConfig.stereo_mode == StereoMode::SBS ||
-      g_ActiveConfig.stereo_mode == StereoMode::TAB ||
-      g_ActiveConfig.stereo_mode == StereoMode::OpenXR)
+      g_ActiveConfig.stereo_mode == StereoMode::TAB)
   {
     const auto [left_rc, right_rc] = ConvertStereoRectangle(target_rc);
 
+    m_post_processor->BlitFromTexture(left_rc, source_rc, source_texture, 0);
+    m_post_processor->BlitFromTexture(right_rc, source_rc, source_texture, 1);
+  }
+  else if (g_ActiveConfig.stereo_mode == StereoMode::OpenXR)
+  {
+     auto [left_rc, right_rc] = ConvertStereoRectangle(target_rc);
+    if (m_openxr_session)
+    {
+      m_openxr_session->ProjectRectangle(left_rc, 0);
+      m_openxr_session->ProjectRectangle(right_rc, 1);
+    }
     m_post_processor->BlitFromTexture(left_rc, source_rc, source_texture, 0);
     m_post_processor->BlitFromTexture(right_rc, source_rc, source_texture, 1);
   }

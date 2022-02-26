@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Common/MathUtil.h"
 
 namespace Common
 {
@@ -91,10 +92,14 @@ public:
 
   Common::Matrix44 GetProjectionOnlyMatrix(int eye_index, float z_near, float z_far);
 
+  void ProjectRectangle(MathUtil::Rectangle<int>& rc, int eye_index);
+
   void GetProjectionBounds(int eye_index, float* angleLeft, float* angleRight, float* angleUp,
                            float* angleDown);
 
   void ModifyProjectionMatrix(u32 projtype, Common::Matrix44* proj, int eye_index);
+
+  void SetMostRecentProjection(std::array<float, 6> proj);
 
   Common::Matrix44 GetTextureShiftMatrix(int eye_index);
 
@@ -150,6 +155,9 @@ private:
   float m_3d_screen_width;
   float m_3d_screen_height;
   float m_3d_screen_z;
+
+  std::array<float, 6> m_most_recent_projection = {1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f};
+
 };
 
 std::unique_ptr<Session> CreateSession(const std::vector<std::string_view>& required_extensions,

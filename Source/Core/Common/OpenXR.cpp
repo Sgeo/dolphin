@@ -76,6 +76,7 @@ void EventThreadFunc()
   while (s_run_event_thread)
   {
     XrEventDataBuffer buffer{XR_TYPE_EVENT_DATA_BUFFER};
+    if(!s_instance) return;
     XrResult result = xrPollEvent(s_instance, &buffer);
 
     if (result == XR_EVENT_UNAVAILABLE)
@@ -138,7 +139,7 @@ bool Init()
 
   s_enabled_extensions = {};
 
-  uint32_t extension_count;
+  uint32_t extension_count = 0;
   xrEnumerateInstanceExtensionProperties(nullptr, 0, &extension_count, nullptr);
   std::vector<XrExtensionProperties> extensions(extension_count, {XR_TYPE_EXTENSION_PROPERTIES});
   xrEnumerateInstanceExtensionProperties(nullptr, extension_count, &extension_count,
@@ -461,6 +462,10 @@ bool Session::EndFrame()
     projection_view = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
     projection_view.pose = m_eye_views[i].pose;
     projection_view.fov = m_eye_views[i].fov;
+    //projection_view.fov.angleLeft = (float)-MathUtil::PI/2.0f;
+    //projection_view.fov.angleRight = (float)MathUtil::PI/2.0f;
+    //projection_view.fov.angleDown = (float)-MathUtil::PI/2.0f;
+    //projection_view.fov.angleUp = (float)MathUtil::PI/2.0f;
     projection_view.subImage.swapchain = m_swapchain;
     projection_view.subImage.imageRect = {{static_cast<int32_t>(i) * m_swapchain_size.width / 2, 0},
                                           {m_swapchain_size.width / 2, m_swapchain_size.height}};
@@ -775,6 +780,42 @@ Common::Matrix44 Session::GetProjectionOnlyMatrix(int eye_index, float z_near, f
   return Matrix44::FrustumD3D(left, right, bottom, top, z_near, z_far);
 }
 
+void Session::ProjectRectangle(MathUtil::Rectangle<int>& rc, int eye_index)
+{
+  using Common::Matrix33;
+  using Common::Matrix44;
+
+  UpdateValuesIfDirty();
+
+  auto& view = m_eye_views[eye_index];
+
+  const auto& fov = view.fov;
+
+  float game_left = (-1 + m_most_recent_projection[1]) / m_most_recent_projection[0];
+  float game_right = (1 + m_most_recent_projection[1]) / m_most_recent_projection[0];
+  float game_top = (1 + m_most_recent_projection[3]) / m_most_recent_projection[2];
+  float game_bottom = (-1 + m_most_recent_projection[3]) / m_most_recent_projection[2];
+  float vr_left = std::tan(fov.angleLeft);
+  float vr_right = std::tan(fov.angleRight);
+  float vr_bottom = std::tan(fov.angleDown);
+  float vr_top = std::tan(fov.angleUp);
+  float vr_width = vr_right - vr_left;
+  float vr_height = vr_top - vr_bottom;
+  float translate_x = -(vr_left + vr_right) / vr_width;
+  float scale_x = 2.0f / vr_width;
+  float translate_y = -(vr_top + vr_bottom) / vr_height;
+  float scale_y = 2.0f / vr_height;
+  float rc_offset_x = (rc.right + rc.left) / 2.0f;
+  float rc_scale_x = (rc.right - rc.left) / 2.0f;
+  float rc_offset_y = (rc.top + rc.bottom) / 2.0f;
+  float rc_scale_y = (rc.top - rc.bottom) / 2.0f;
+  rc.left = (game_left * scale_x + translate_x) * rc_scale_x + rc_offset_x;
+  rc.right = (game_right * scale_x + translate_x) * rc_scale_x + rc_offset_x;
+  rc.bottom = (game_bottom * scale_y + translate_y) * rc_scale_y + rc_offset_y;
+  rc.top = (game_top * scale_y + translate_y) * rc_scale_y + rc_offset_y;
+
+}
+
 float sign(float x)
 {
   if (x < 0.0f)
@@ -797,6 +838,7 @@ void Session::GetProjectionBounds(int eye_index, float *angleLeft, float *angleR
 
 void Session::ModifyProjectionMatrix(u32 projtype, Common::Matrix44 *proj, int eye_index)
 {
+  return;
   using Common::Matrix33;
   using Common::Matrix44;
 
@@ -813,7 +855,7 @@ void Session::ModifyProjectionMatrix(u32 projtype, Common::Matrix44 *proj, int e
   float width = right - left;
   float height = top - bottom;
 
-  if (projtype == GX_PERSPECTIVE)
+  if (false && projtype == GX_PERSPECTIVE)
   {
     proj->data[0] = 2.0f / width;
     proj->data[2] = (right + left) / width;
@@ -823,8 +865,8 @@ void Session::ModifyProjectionMatrix(u32 projtype, Common::Matrix44 *proj, int e
   else
   {
     *proj = 
-            Matrix44::Translate(Common::Vec3{-(right + left) / (right - left),
-                                             -(top + bottom) / (top - bottom), 0.0}) *
+            //Matrix44::Translate(Common::Vec3{-(right + left) / (right - left),
+                                             //-(top + bottom) / (top - bottom), 0.0}) *
             Matrix44::Scale(Common::Vec3{2.0f / (right - left), 2.0f / (top - bottom), 1.0f}) *
             *proj;
   }
@@ -833,6 +875,10 @@ void Session::ModifyProjectionMatrix(u32 projtype, Common::Matrix44 *proj, int e
   //shiftmatrix.data[0] = 0.5f;
   //shiftmatrix.data[3] = eye_index == 0 ? -0.5f : 0.5f;
   //*proj = shiftmatrix * *proj;
+}
+
+void Session::SetMostRecentProjection(std::array<float, 6> proj) {
+  m_most_recent_projection = proj;
 }
 
 Common::Matrix44 Session::GetTextureShiftMatrix(int eye_index)

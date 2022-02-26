@@ -429,12 +429,12 @@ void VertexShaderManager::SetConstants()
         //session->Set3DScreenZ(z/5.0f);
         //corrected_matrix = corrected_matrix * session->GetEyeViewOnlyMatrix(0);
         //corrected_matrix *= session->GetHeadMatrix();
-        session->ModifyProjectionMatrix(xfmem.projection.type, &corrected_matrix, 0);
-        if(xfmem.projection.type == GX_PERSPECTIVE)
-          corrected_matrix *= session->GetEyeViewOnlyMatrix(0);
-        session->ModifyProjectionMatrix(xfmem.projection.type, &corrected_matrix_right, 1);
         if (xfmem.projection.type == GX_PERSPECTIVE)
+        {
+          corrected_matrix *= session->GetEyeViewOnlyMatrix(0);
           corrected_matrix_right *= session->GetEyeViewOnlyMatrix(1);
+          session->SetMostRecentProjection(rawProjection);
+        }
       }
 
 
